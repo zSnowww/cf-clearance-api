@@ -16,7 +16,6 @@ from nodriver import cdp
 from nodriver.cdp.network import Cookie
 from nodriver.core.element import Element
 from nodriver.core.tab import Tab
-from selenium.common.exceptions import TimeoutException
 from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
 
 nest_asyncio.apply()
@@ -313,7 +312,7 @@ async def main() -> None:
 
         try:
             await solver.driver.get(args.url)
-        except TimeoutException as err:
+        except asyncio.TimeoutError as err:
             logging.error(err)
             return
 
@@ -339,7 +338,7 @@ async def main() -> None:
 
         try:
             await solver.solve_challenge()
-        except TimeoutException:
+        except asyncio.TimeoutError:
             pass
 
         clearance_cookie = solver.extract_clearance_cookie(await solver.get_cookies())
