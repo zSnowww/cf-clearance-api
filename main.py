@@ -114,7 +114,7 @@ class CloudflareSolver:
         self.driver.stop()
 
     @staticmethod
-    async def set_user_agent(tab: Tab, user_agent: str) -> None:
+    def set_user_agent(tab: Tab, user_agent: str) -> None:
         """
         Set the user agent for the browser tab.
 
@@ -126,17 +126,6 @@ class CloudflareSolver:
             The user agent string.
         """
         tab.feed_cdp(cdp.emulation.set_user_agent_override(user_agent))
-
-    async def get_cookies(self) -> List[Cookie]:
-        """
-        Get all cookies from the current page.
-
-        Returns
-        -------
-        List[Cookie]
-            List of cookies.
-        """
-        return await self.driver.cookies.get_all()
 
     @staticmethod
     def extract_clearance_cookie(
@@ -161,6 +150,17 @@ class CloudflareSolver:
                 return cookie
 
         return None
+
+    async def get_cookies(self) -> List[Cookie]:
+        """
+        Get all cookies from the current page.
+
+        Returns
+        -------
+        List[Cookie]
+            List of cookies.
+        """
+        return await self.driver.cookies.get_all()
 
     async def detect_challenge(self) -> Optional[ChallengePlatform]:
         """
@@ -307,9 +307,9 @@ async def main() -> None:
         headless=not args.debug,
         proxy=args.proxy,
     ) as solver:
-        logging.info("Going to %s...", args.url)
-        await solver.set_user_agent(solver.driver.main_tab, args.user_agent)
+        solver.set_user_agent(solver.driver.main_tab, args.user_agent)
         await solver.driver.main_tab.reload()
+        logging.info("Going to %s...", args.url)
 
         try:
             await solver.driver.get(args.url)
