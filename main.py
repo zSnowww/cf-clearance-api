@@ -24,6 +24,12 @@ nest_asyncio.apply()
 class PrintLocker:
     """A class for locking and unlocking the print function."""
 
+    def __enter__(self) -> None:
+        self.unlock()
+
+    def __exit__(self, *_: Any) -> None:
+        self.lock()
+
     @staticmethod
     def lock() -> None:
         """Lock the print function."""
@@ -33,13 +39,6 @@ class PrintLocker:
     def unlock() -> None:
         """Unlock the print function."""
         sys.stdout = sys.__stdout__
-
-    def __enter__(self) -> PrintLocker:
-        self.unlock()
-        return self
-
-    def __exit__(self, *_: Any) -> None:
-        self.lock()
 
 
 class NodriverOptions(list):
