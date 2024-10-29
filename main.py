@@ -18,8 +18,6 @@ from nodriver.core.element import Element
 from nodriver.core.tab import Tab
 from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
 
-nest_asyncio.apply()
-
 
 class PrintLocker:
     """A class for locking and unlocking the print function."""
@@ -238,7 +236,7 @@ async def main() -> None:
         "-t",
         "--timeout",
         default=30,
-        help="The timeout in seconds to use for browser actions and solving challenges",
+        help="The timeout in seconds to use for solving challenges",
         type=float,
     )
 
@@ -278,10 +276,12 @@ async def main() -> None:
         help="Increase the output verbosity",
     )
 
+    args = parser.parse_args()
+    nest_asyncio.apply()
+
     print_locker = PrintLocker()
     print_locker.lock()
 
-    args = parser.parse_args()
     logging_level = logging.INFO if args.verbose else logging.ERROR
 
     logging.basicConfig(

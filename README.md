@@ -46,7 +46,7 @@ options:
   -h, --help            show this help message and exit
   -f FILE, --file FILE  The file to write the Cloudflare clearance cookie information to, in JSON format
   -t TIMEOUT, --timeout TIMEOUT
-                        The timeout in seconds to use for browser actions and solving challenges
+                        The timeout in seconds to use for solving challenges
   -p PROXY, --proxy PROXY
                         The proxy server URL to use for the browser requests
   -ua USER_AGENT, --user-agent USER_AGENT
@@ -57,10 +57,10 @@ options:
 ```
 
 ## Example
-    $ python main.py -v -f cookies.json https://nowsecure.nl
-    [11:33:32] [INFO] Launching headless browser...
-    [11:33:34] [INFO] Going to https://nowsecure.nl...
-    [11:33:34] [INFO] Solving Cloudflare challenge [Managed]...
-    [11:33:38] [INFO] Cookie: cf_clearance=SNMwlsKbfROOWr3FU0jgPn0WY3.z1sn5_b3W6aSRwh8-1690648414-0-160.0.0
-    [11:33:38] [INFO] User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36
-    [11:33:38] [INFO] Writing Cloudflare clearance cookie information to cookies.json...
+    $ python main.py -v -d -f cookies.json https://sergiodemo.com/security/challenge/managed-challenge
+    [09:32:11] [INFO] Launching headed browser...
+    [09:32:11] [INFO] Going to https://sergiodemo.com/security/challenge/managed-challenge...
+    [09:32:12] [INFO] Solving Cloudflare challenge [Managed]...
+    [09:32:13] [INFO] Cookie: cf_clearance=shROubfIW5fFY3MP57LHOHpgqTajEJmSf_OAOHzFCrE-1730212331-1.2.1.1-LMVnpv1XZrom_2aqroIEx3ENq.6_WWi_zreDw9tn.0iNbALJgnQUxNv8gzHe2UMRRH.Cj7cR6cadGpJJH4EgEH0cX8Zevv7bwiKL0ykxBf9muDt9Lu0UbNmxbqRW.RP2b6VIM6t5NfI0PtoeSThfvDIywWck6jQ99VRrbbSeKg46A53f4ctkNf8ZjTy_SRoh8e.imNrLC3CRV3l7FDaEan_JHUuf3wAbDDJ0l6pfv7mBYNqGNdyXTvRITcgUr7ZUyeyoXC5I8A9mmaM0jS3kHXXxBlXhlR1voLwAynuu25GQw7ycXQGK47QngJr33gdm7MQVUP5_6mmtNIqXY1Y6U3j0pHkksgbUj2BaoeiFraX.aegb6PgbQBDiYlq168P7MlLW1.Ew9.wJG.Hp6dgTEgv_FZq9kYa3lic4i8GZBkKbOAJC_WNOkrfKhDtGf6lS
+    [09:32:13] [INFO] User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36
+    [09:32:13] [INFO] Writing Cloudflare clearance cookie information to cookies.json...
