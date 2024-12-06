@@ -1,7 +1,8 @@
 # CF-Clearance-Scraper
 
 ## nodriver Version
-A simple program for scraping Cloudflare clearance (cf_clearance) cookies from websites issuing Cloudflare challenges to visitors. This program works on all Cloudflare challenge types (JavaScript, managed, and interactive).
+A simple program for scraping Cloudflare clearance (cf_clearance) cookies from websites issuing Cloudflare challenges to visitors. This program works on all Cloudflare challenge types (JavaScript, managed, and interactive). If you would prefer using Playwright, you can check out the [Playwright version](https://github.com/Xewdy444/CF-Clearance-Scraper/tree/playwright).
+
 
 ## Clearance Cookie Usage
 In order to bypass Cloudflare challenges with the clearance cookies, you must make sure of two things:
@@ -28,14 +29,11 @@ Then, install the Python dependencies:
     $ pip install -r requirements.txt
 
 ## Usage
-> [!WARNING]
-> nodriver is currently detected by Cloudflare when using headless mode. You can pass the `-d` flag to run the browser in headed mode.
-
 > [!NOTE]
 > Depending on the user agent used, it may affect your ability to solve the Cloudflare challenge.
 
 ```
-usage: main.py [-h] [-f FILE] [-t TIMEOUT] [-p PROXY] [-ua USER_AGENT] [--disable-http2] [-d] [-v] URL
+usage: main.py [-h] [-f FILE] [-t TIMEOUT] [-p PROXY] [-ua USER_AGENT] [--disable-http2] [--disable-http3] [-d] [-v] URL
 
 A simple program for scraping Cloudflare clearance (cf_clearance) cookies from websites issuing Cloudflare challenges to visitors
 
@@ -52,15 +50,16 @@ options:
   -ua USER_AGENT, --user-agent USER_AGENT
                         The user agent to use for the browser requests
   --disable-http2       Disable the usage of HTTP/2 for the browser requests
+  --disable-http3       Disable the usage of HTTP/3 for the browser requests
   -d, --debug           Run the browser in headed mode
   -v, --verbose         Increase the output verbosity
 ```
 
 ## Example
-    $ python main.py -v -d -f cookies.json https://sergiodemo.com/security/challenge/managed-challenge
-    [09:32:11] [INFO] Launching headed browser...
-    [09:32:11] [INFO] Going to https://sergiodemo.com/security/challenge/managed-challenge...
-    [09:32:12] [INFO] Solving Cloudflare challenge [Managed]...
-    [09:32:13] [INFO] Cookie: cf_clearance=shROubfIW5fFY3MP57LHOHpgqTajEJmSf_OAOHzFCrE-1730212331-1.2.1.1-LMVnpv1XZrom_2aqroIEx3ENq.6_WWi_zreDw9tn.0iNbALJgnQUxNv8gzHe2UMRRH.Cj7cR6cadGpJJH4EgEH0cX8Zevv7bwiKL0ykxBf9muDt9Lu0UbNmxbqRW.RP2b6VIM6t5NfI0PtoeSThfvDIywWck6jQ99VRrbbSeKg46A53f4ctkNf8ZjTy_SRoh8e.imNrLC3CRV3l7FDaEan_JHUuf3wAbDDJ0l6pfv7mBYNqGNdyXTvRITcgUr7ZUyeyoXC5I8A9mmaM0jS3kHXXxBlXhlR1voLwAynuu25GQw7ycXQGK47QngJr33gdm7MQVUP5_6mmtNIqXY1Y6U3j0pHkksgbUj2BaoeiFraX.aegb6PgbQBDiYlq168P7MlLW1.Ew9.wJG.Hp6dgTEgv_FZq9kYa3lic4i8GZBkKbOAJC_WNOkrfKhDtGf6lS
-    [09:32:13] [INFO] User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36
-    [09:32:13] [INFO] Writing Cloudflare clearance cookie information to cookies.json...
+    $ python main.py -v -d -f cookies.json https://sergiodemo.com/security/challenge/legacy-challenge
+    [14:14:44] [INFO] Launching headed browser...
+    [14:14:44] [INFO] Going to https://sergiodemo.com/security/challenge/legacy-challenge...
+    [14:14:45] [INFO] Solving Cloudflare challenge [Interactive]...
+    [14:14:52] [INFO] Cookie: cf_clearance=7L.nyfi8LisynHl0JDliTWQpzszoniPFiJ6yu564FSI-1733516084-1.2.1.1-JXRIHIFfVwwg7t69xfJQrDEt7qbIqyDqOqA6z9TJcKgqVdBtpXCTAgSFGrkJtbYQhRJ7oPpuV7fnc3nQWLYF.DjWXRDnSw1eIgDXgk.YEvO4rPFoCzpFzRzLc7RHKheqRC6Wjra9XXyUlnsZYply5PBH2DkUdSC7xvMSBuvEZdVF5fZltP2IHnZy7qDLasySHtK767PCeBLLi48JyHaJMP0F4armNtdC2KESCTugb8j4zlZSmOZDKf.FkgYiFimyifWNpMTMoXv7Olyo5FSZf5dRPacV98gRwE2youzznSTfqEyyxLOSlGlkQQ48f1o.LusvnM4g1_G6HBfDuZQPagGuPUwaUo6CXa4UXjAUMi_cuzRVYc8TfR9Vr2I0fvPH.AbG2ZRcbCW8NTKiuWnVbCj1o6b6VrRvCeK8EZtpUGg
+    [14:14:52] [INFO] User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36
+    [14:14:52] [INFO] Writing Cloudflare clearance cookie information to cookies.json...

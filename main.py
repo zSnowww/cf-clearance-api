@@ -12,11 +12,12 @@ from typing import Any, Iterable, List, Optional
 
 import nest_asyncio
 import nodriver
-from nodriver import cdp
 from nodriver.cdp.network import Cookie
 from nodriver.core.element import Element
-from nodriver.core.tab import Tab
 from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
+
+if sys.platform != "win32":
+    from xvfbwrapper import Xvfb
 
 
 class PrintLocker:
@@ -68,12 +69,16 @@ class CloudflareSolver:
 
     Parameters
     ----------
+    user_agent : str
+        The user agent string to use for the browser requests.
     timeout : float
         The timeout in seconds to use for browser actions and solving challenges.
     http2 : bool
         Enable or disable the usage of HTTP/2 for the browser requests.
+    http3 : bool
+        Enable or disable the usage of HTTP/3 for the browser requests.
     headless : bool
-        Enable or disable headless mode for the browser.
+        Enable or disable headless mode for the browser (not supported on Windows).
     proxy : Optional[str]
         The proxy server URL to use for the browser requests.
     """
@@ -81,47 +86,47 @@ class CloudflareSolver:
     def __init__(
         self,
         *,
+        user_agent: str,
         timeout: float,
         http2: bool,
+        http3: bool,
         headless: bool,
         proxy: Optional[str],
     ) -> None:
         options = NodriverOptions()
+        options.add_argument(f"--user-agent={user_agent}")
 
         if not http2:
             options.add_argument("--disable-http2")
 
-        if headless:
-            options.add_argument("--headless=new")
+        if not http3:
+            options.add_argument("--disable-quic")
+
+        if headless and sys.platform == "win32":
+            raise Exception("Headless mode is not supported on Windows.")
+
+        self._virtual_display = Xvfb() if headless else None
 
         if proxy is not None:
             auth_proxy = SeleniumAuthenticatedProxy(proxy, use_legacy_extension=True)
             auth_proxy.enrich_chrome_options(options)
 
-        config = nodriver.Config(browser_args=options)
+        config = nodriver.Config(browser_args=options, sandbox=False)
         self.driver = nodriver.Browser(config)
         self._timeout = timeout
 
     async def __aenter__(self) -> CloudflareSolver:
+        if self._virtual_display is not None:
+            self._virtual_display.start()
+
         await self.driver.start()
         return self
 
     async def __aexit__(self, *_: Any) -> None:
         self.driver.stop()
 
-    @staticmethod
-    def set_user_agent(tab: Tab, user_agent: str) -> None:
-        """
-        Set the user agent for the browser tab.
-
-        Parameters
-        ----------
-        tab : Tab
-            The browser tab.
-        user_agent : str
-            The user agent string.
-        """
-        tab.feed_cdp(cdp.emulation.set_user_agent_override(user_agent))
+        if self._virtual_display is not None:
+            self._virtual_display.stop()
 
     @staticmethod
     def extract_clearance_cookie(
@@ -263,6 +268,12 @@ async def main() -> None:
     )
 
     parser.add_argument(
+        "--disable-http3",
+        action="store_true",
+        help="Disable the usage of HTTP/3 for the browser requests",
+    )
+
+    parser.add_argument(
         "-d",
         "--debug",
         action="store_true",
@@ -300,13 +311,13 @@ async def main() -> None:
     }
 
     async with CloudflareSolver(
+        user_agent=args.user_agent,
         timeout=args.timeout,
         http2=not args.disable_http2,
+        http3=not args.disable_http3,
         headless=not args.debug,
         proxy=args.proxy,
     ) as solver:
-        solver.set_user_agent(solver.driver.main_tab, args.user_agent)
-        await solver.driver.main_tab.reload()
         logging.info("Going to %s...", args.url)
 
         try:
@@ -317,30 +328,23 @@ async def main() -> None:
 
         clearance_cookie = solver.extract_clearance_cookie(await solver.get_cookies())
 
-        if clearance_cookie is not None:
-            logging.info("Cookie: cf_clearance=%s", clearance_cookie.value)
-            logging.info("User agent: %s", args.user_agent)
+        if clearance_cookie is None:
+            challenge_platform = await solver.detect_challenge()
 
-            if not args.verbose:
-                with print_locker:
-                    print(f"cf_clearance={clearance_cookie.value}")
+            if challenge_platform is None:
+                logging.error("No Cloudflare challenge detected.")
+                return
 
-            return
+            logging.info(challenge_messages[challenge_platform])
 
-        challenge_platform = await solver.detect_challenge()
+            try:
+                await solver.solve_challenge()
+            except asyncio.TimeoutError:
+                pass
 
-        if challenge_platform is None:
-            logging.error("No Cloudflare challenge detected.")
-            return
-
-        logging.info(challenge_messages[challenge_platform])
-
-        try:
-            await solver.solve_challenge()
-        except asyncio.TimeoutError:
-            pass
-
-        clearance_cookie = solver.extract_clearance_cookie(await solver.get_cookies())
+            clearance_cookie = solver.extract_clearance_cookie(
+                await solver.get_cookies()
+            )
 
     if clearance_cookie is None:
         logging.error("Failed to retrieve a Cloudflare clearance cookie.")
