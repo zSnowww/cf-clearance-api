@@ -30,7 +30,7 @@ Then, install the Python dependencies:
 
 ## Usage
 > [!NOTE]
-> Headless mode is not support on Windows.
+> Headless mode is not supported on Windows.
 
 > [!WARNING]
 > Depending on the user agent used, it may affect your ability to solve the Cloudflare challenge.
