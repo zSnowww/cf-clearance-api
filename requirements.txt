@@ -1,5 +1,5 @@
 nest_asyncio==1.6.0
-nodriver==0.38.post1
+nodriver==0.39
 selenium_authenticated_proxy==1.1.2
 websockets==13.1
 xvfbwrapper==0.2.9; platform_system != "Windows"
