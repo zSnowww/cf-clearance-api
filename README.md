@@ -36,7 +36,7 @@ Then, install the Python dependencies:
 > Depending on the user agent used, it may affect your ability to solve the Cloudflare challenge.
 
 ```
-usage: main.py [-h] [-f FILE] [-t TIMEOUT] [-p PROXY] [-ua USER_AGENT] [--disable-http2] [--disable-http3] [-d] [-v] URL
+usage: main.py [-h] [-f FILE] [-t TIMEOUT] [-p PROXY] [-ua USER_AGENT] [--disable-http2] [--disable-http3] [--headed] [-ac] [-c] [-w] [-a] URL
 
 A simple program for scraping Cloudflare clearance (cf_clearance) cookies from websites issuing Cloudflare challenges to visitors
 
@@ -54,15 +54,18 @@ options:
                         The user agent to use for the browser requests
   --disable-http2       Disable the usage of HTTP/2 for the browser requests
   --disable-http3       Disable the usage of HTTP/3 for the browser requests
-  -d, --debug           Run the browser in headed mode
-  -v, --verbose         Increase the output verbosity
+  --headed              Run the browser in headed mode
+  -ac, --all-cookies    Retrieve all cookies from the page, not just the Cloudflare clearance cookie
+  -c, --curl            Get the cURL command for the request with the cookies and user agent
+  -w, --wget            Get the Wget command for the request with the cookies and user agent
+  -a, --aria2           Get the aria2 command for the request with the cookies and user agent
 ```
 
 ## Example
-    $ python main.py -v -d -f cookies.json https://sergiodemo.com/security/challenge/legacy-challenge
-    [14:14:44] [INFO] Launching headed browser...
-    [14:14:44] [INFO] Going to https://sergiodemo.com/security/challenge/legacy-challenge...
-    [14:14:45] [INFO] Solving Cloudflare challenge [Interactive]...
-    [14:14:52] [INFO] Cookie: cf_clearance=7L.nyfi8LisynHl0JDliTWQpzszoniPFiJ6yu564FSI-1733516084-1.2.1.1-JXRIHIFfVwwg7t69xfJQrDEt7qbIqyDqOqA6z9TJcKgqVdBtpXCTAgSFGrkJtbYQhRJ7oPpuV7fnc3nQWLYF.DjWXRDnSw1eIgDXgk.YEvO4rPFoCzpFzRzLc7RHKheqRC6Wjra9XXyUlnsZYply5PBH2DkUdSC7xvMSBuvEZdVF5fZltP2IHnZy7qDLasySHtK767PCeBLLi48JyHaJMP0F4armNtdC2KESCTugb8j4zlZSmOZDKf.FkgYiFimyifWNpMTMoXv7Olyo5FSZf5dRPacV98gRwE2youzznSTfqEyyxLOSlGlkQQ48f1o.LusvnM4g1_G6HBfDuZQPagGuPUwaUo6CXa4UXjAUMi_cuzRVYc8TfR9Vr2I0fvPH.AbG2ZRcbCW8NTKiuWnVbCj1o6b6VrRvCeK8EZtpUGg
-    [14:14:52] [INFO] User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36
-    [14:14:52] [INFO] Writing Cloudflare clearance cookie information to cookies.json...
+    $ python main.py --headed -f cookies.json https://sergiodemo.com/security/challenge/legacy-challenge
+    [14:24:27] [INFO] Launching headed browser...
+    [14:24:27] [INFO] Going to https://sergiodemo.com/security/challenge/legacy-challenge...
+    [14:24:28] [INFO] Solving Cloudflare challenge [Interactive]...
+    [14:24:31] [INFO] Cookie: cf_clearance=SkyEdEGvKp1BBA2NpRW3Azsw5neMD6sEEqJd6jOCCfs-1736886257-1.2.1.1-cam47ywp3q_yKE1bw0lZ2YS83dnh_BsIHtS7earbsYE.AxQDBtZiifiHvp1nZGRhABaSdjU7XRQpUCVwUSrlJGH8DXr50YR18pNLxBvcEJFO2gPMxr.ZjKze8rWgM9H4rPeET67jzAo_ZRpNP6hGCvdyO62VVCtqDBQDKhKZz9yZQp7YEHK7tchQIteVgu.dUxYdan5_D.R0zewnS382BP0w1AoTf2p40.lQwbhgildEiKG14xACd13V4EEthkZV0dnliwcn35rT3h32ODf50MABQNSQ8WjhZhbLSNOPO_zEhrK9R0Yn4eBuRKvnL9_x9jKvaBPDPAgyiZv_VzFP_g
+    [14:24:31] [INFO] User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36
+    [14:24:31] [INFO] Writing Cloudflare clearance cookie information to cookies.json...

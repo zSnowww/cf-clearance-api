@@ -8,7 +8,7 @@ import logging
 import sys
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Iterable, List, Optional
+from typing import Any, Dict, Final, Iterable, List, Optional, TypedDict
 
 import nest_asyncio
 import nodriver
@@ -19,25 +19,22 @@ from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
 if sys.platform != "win32":
     from xvfbwrapper import Xvfb
 
+COMMAND: Final[str] = (
+    '{name}: {binary} --header "Cookie: {cookies}" --header "User-Agent: {user_agent}" {url}'
+)
 
-class PrintLocker:
-    """A class for locking and unlocking the print function."""
 
-    def __enter__(self) -> None:
-        self.unlock()
+class JSONCookie(TypedDict):
+    """A type for representing a JSON cookie."""
 
-    def __exit__(self, *_: Any) -> None:
-        self.lock()
-
-    @staticmethod
-    def lock() -> None:
-        """Lock the print function."""
-        sys.stdout = io.StringIO()
-
-    @staticmethod
-    def unlock() -> None:
-        """Unlock the print function."""
-        sys.stdout = sys.__stdout__
+    name: str
+    value: str
+    domain: str
+    path: str
+    expires: float
+    httpOnly: bool
+    secure: bool
+    sameSite: str
 
 
 class NodriverOptions(list):
@@ -129,11 +126,9 @@ class CloudflareSolver:
             self._virtual_display.stop()
 
     @staticmethod
-    def extract_clearance_cookie(
-        cookies: Iterable[Cookie],
-    ) -> Optional[Cookie]:
+    def _format_cookies(cookies: Iterable[Cookie]) -> List[JSONCookie]:
         """
-        Extract the Cloudflare clearance cookie from a list of cookies.
+        Format cookies into a list of JSON cookies.
 
         Parameters
         ----------
@@ -142,26 +137,57 @@ class CloudflareSolver:
 
         Returns
         -------
-        Optional[Cookie]
+        List[JSONCookie]
+            List of JSON cookies.
+        """
+        return [
+            JSONCookie(
+                name=cookie["name"],
+                value=cookie["value"],
+                domain=cookie["domain"],
+                path=cookie["path"],
+                expires=cookie["expires"],
+                httpOnly=cookie["httpOnly"],
+                secure=cookie["secure"],
+                sameSite=cookie["sameSite"],
+            )
+            for cookie in [cookie.to_json() for cookie in cookies]
+        ]
+
+    @staticmethod
+    def extract_clearance_cookie(
+        cookies: Iterable[JSONCookie],
+    ) -> Optional[JSONCookie]:
+        """
+        Extract the Cloudflare clearance cookie from a list of cookies.
+
+        Parameters
+        ----------
+        cookies : Iterable[JSONCookie]
+            List of cookies.
+
+        Returns
+        -------
+        Optional[JSONCookie]
             The Cloudflare clearance cookie. Returns None if the cookie is not found.
         """
 
         for cookie in cookies:
-            if cookie.name == "cf_clearance":
+            if cookie["name"] == "cf_clearance":
                 return cookie
 
         return None
 
-    async def get_cookies(self) -> List[Cookie]:
+    async def get_cookies(self) -> List[JSONCookie]:
         """
         Get all cookies from the current page.
 
         Returns
         -------
-        List[Cookie]
+        List[JSONCookie]
             List of cookies.
         """
-        return await self.driver.cookies.get_all()
+        return self._format_cookies(await self.driver.cookies.get_all())
 
     async def detect_challenge(self) -> Optional[ChallengePlatform]:
         """
@@ -274,35 +300,51 @@ async def main() -> None:
     )
 
     parser.add_argument(
-        "-d",
-        "--debug",
+        "--headed",
         action="store_true",
         help="Run the browser in headed mode",
     )
 
     parser.add_argument(
-        "-v",
-        "--verbose",
+        "-ac",
+        "--all-cookies",
         action="store_true",
-        help="Increase the output verbosity",
+        help="Retrieve all cookies from the page, not just the Cloudflare clearance cookie",
+    )
+
+    parser.add_argument(
+        "-c",
+        "--curl",
+        action="store_true",
+        help="Get the cURL command for the request with the cookies and user agent",
+    )
+
+    parser.add_argument(
+        "-w",
+        "--wget",
+        action="store_true",
+        help="Get the Wget command for the request with the cookies and user agent",
+    )
+
+    parser.add_argument(
+        "-a",
+        "--aria2",
+        action="store_true",
+        help="Get the aria2 command for the request with the cookies and user agent",
     )
 
     args = parser.parse_args()
+    sys.stdout = io.StringIO()
     nest_asyncio.apply()
-
-    print_locker = PrintLocker()
-    print_locker.lock()
-
-    logging_level = logging.INFO if args.verbose else logging.ERROR
 
     logging.basicConfig(
         format="[%(asctime)s] [%(levelname)s] %(message)s",
         datefmt="%H:%M:%S",
-        level=logging_level,
+        level=logging.INFO,
     )
 
     logging.getLogger("nodriver").setLevel(logging.WARNING)
-    logging.info("Launching %s browser...", "headed" if args.debug else "headless")
+    logging.info("Launching %s browser...", "headed" if args.headed else "headless")
 
     challenge_messages = {
         ChallengePlatform.JAVASCRIPT: "Solving Cloudflare challenge [JavaScript]...",
@@ -315,7 +357,7 @@ async def main() -> None:
         timeout=args.timeout,
         http2=not args.disable_http2,
         http3=not args.disable_http3,
-        headless=not args.debug,
+        headless=not args.headed,
         proxy=args.proxy,
     ) as solver:
         logging.info("Going to %s...", args.url)
@@ -326,7 +368,8 @@ async def main() -> None:
             logging.error(err)
             return
 
-        clearance_cookie = solver.extract_clearance_cookie(await solver.get_cookies())
+        all_cookies = await solver.get_cookies()
+        clearance_cookie = solver.extract_clearance_cookie(all_cookies)
 
         if clearance_cookie is None:
             challenge_platform = await solver.detect_challenge()
@@ -342,20 +385,84 @@ async def main() -> None:
             except asyncio.TimeoutError:
                 pass
 
-            clearance_cookie = solver.extract_clearance_cookie(
-                await solver.get_cookies()
-            )
+            all_cookies = await solver.get_cookies()
+            clearance_cookie = solver.extract_clearance_cookie(all_cookies)
 
     if clearance_cookie is None:
         logging.error("Failed to retrieve a Cloudflare clearance cookie.")
         return
 
-    logging.info("Cookie: cf_clearance=%s", clearance_cookie.value)
+    cookie_string = "; ".join(
+        f'{cookie["name"]}={cookie["value"]}' for cookie in all_cookies
+    )
+
+    if args.all_cookies:
+        logging.info("All cookies: %s", cookie_string)
+    else:
+        logging.info("Cookie: cf_clearance=%s", clearance_cookie["value"])
+
     logging.info("User agent: %s", args.user_agent)
 
-    if not args.verbose:
-        with print_locker:
-            print(f"cf_clearance={clearance_cookie.value}")
+    if args.curl:
+        logging.info(
+            COMMAND.format(
+                name="cURL",
+                binary="curl",
+                cookies=(
+                    cookie_string
+                    if args.all_cookies
+                    else f'cf_clearance={clearance_cookie["value"]}'
+                ),
+                user_agent=args.user_agent,
+                url=(
+                    f"--proxy {args.proxy} {args.url}"
+                    if args.proxy is not None
+                    else args.url
+                ),
+            )
+        )
+
+    if args.wget:
+        if args.proxy is not None:
+            logging.warning(
+                "Proxies must be set in an environment variable or config file for Wget."
+            )
+
+        logging.info(
+            COMMAND.format(
+                name="Wget",
+                binary="wget",
+                cookies=(
+                    cookie_string
+                    if args.all_cookies
+                    else f'cf_clearance={clearance_cookie["value"]}'
+                ),
+                user_agent=args.user_agent,
+                url=args.url,
+            )
+        )
+
+    if args.aria2:
+        if args.proxy is not None and args.proxy.casefold().startswith("socks"):
+            logging.warning("SOCKS proxies are not supported by aria2.")
+
+        logging.info(
+            COMMAND.format(
+                name="aria2",
+                binary="aria2c",
+                cookies=(
+                    cookie_string
+                    if args.all_cookies
+                    else f'cf_clearance={clearance_cookie["value"]}'
+                ),
+                user_agent=args.user_agent,
+                url=(
+                    f"--all-proxy {args.proxy} {args.url}"
+                    if args.proxy is not None
+                    else args.url
+                ),
+            )
+        )
 
     if args.file is None:
         return
@@ -366,18 +473,18 @@ async def main() -> None:
         with open(args.file, encoding="utf-8") as file:
             json_data = json.load(file)
     except (FileNotFoundError, json.JSONDecodeError):
-        json_data = {"clearance_cookies": []}
+        json_data: Dict[str, List[Dict[str, Any]]] = {}
 
     local_timezone = datetime.now(timezone.utc).astimezone().tzinfo
-    unix_timestamp = clearance_cookie.expires - timedelta(days=365).total_seconds()
+    unix_timestamp = clearance_cookie["expires"] - timedelta(days=365).total_seconds()
     timestamp = datetime.fromtimestamp(unix_timestamp, tz=local_timezone).isoformat()
 
-    json_data["clearance_cookies"].append(
+    json_data.setdefault(clearance_cookie["domain"], []).append(
         {
             "unix_timestamp": int(unix_timestamp),
             "timestamp": timestamp,
-            "domain": clearance_cookie.domain,
-            "cf_clearance": clearance_cookie.value,
+            "cf_clearance": clearance_cookie["value"],
+            "cookies": all_cookies,
             "user_agent": args.user_agent,
             "proxy": args.proxy,
         }
