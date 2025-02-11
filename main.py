@@ -2,43 +2,24 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import io
 import json
 import logging
-import sys
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, Final, Iterable, List, Optional, TypedDict
+from typing import Any, Dict, Final, Iterable, List, Optional
 
-import nest_asyncio
-import nodriver
-from nodriver.cdp.network import Cookie
-from nodriver.core.element import Element
+import zendriver
 from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
-
-if sys.platform != "win32":
-    from xvfbwrapper import Xvfb
+from zendriver.cdp.network import T_JSON_DICT, Cookie
+from zendriver.core.element import Element
 
 COMMAND: Final[str] = (
     '{name}: {binary} --header "Cookie: {cookies}" --header "User-Agent: {user_agent}" {url}'
 )
 
 
-class JSONCookie(TypedDict):
-    """A type for representing a JSON cookie."""
-
-    name: str
-    value: str
-    domain: str
-    path: str
-    expires: float
-    httpOnly: bool
-    secure: bool
-    sameSite: str
-
-
-class NodriverOptions(list):
-    """A class for managing nodriver options."""
+class ZendriverOptions(list):
+    """A class for managing zendriver options."""
 
     def add_argument(self, arg: str) -> None:
         """
@@ -90,7 +71,7 @@ class CloudflareSolver:
         headless: bool,
         proxy: Optional[str],
     ) -> None:
-        options = NodriverOptions()
+        options = ZendriverOptions()
         options.add_argument(f"--user-agent={user_agent}")
 
         if not http2:
@@ -99,34 +80,23 @@ class CloudflareSolver:
         if not http3:
             options.add_argument("--disable-quic")
 
-        if headless and sys.platform == "win32":
-            raise Exception("Headless mode is not supported on Windows.")
-
-        self._virtual_display = Xvfb() if headless else None
-
         if proxy is not None:
             auth_proxy = SeleniumAuthenticatedProxy(proxy, use_legacy_extension=True)
             auth_proxy.enrich_chrome_options(options)
 
-        config = nodriver.Config(browser_args=options, sandbox=False)
-        self.driver = nodriver.Browser(config)
+        config = zendriver.Config(headless=headless, browser_args=options)
+        self.driver = zendriver.Browser(config)
         self._timeout = timeout
 
     async def __aenter__(self) -> CloudflareSolver:
-        if self._virtual_display is not None:
-            self._virtual_display.start()
-
         await self.driver.start()
         return self
 
     async def __aexit__(self, *_: Any) -> None:
-        self.driver.stop()
-
-        if self._virtual_display is not None:
-            self._virtual_display.stop()
+        await self.driver.stop()
 
     @staticmethod
-    def _format_cookies(cookies: Iterable[Cookie]) -> List[JSONCookie]:
+    def _format_cookies(cookies: Iterable[Cookie]) -> List[T_JSON_DICT]:
         """
         Format cookies into a list of JSON cookies.
 
@@ -137,38 +107,26 @@ class CloudflareSolver:
 
         Returns
         -------
-        List[JSONCookie]
+        List[T_JSON_DICT]
             List of JSON cookies.
         """
-        return [
-            JSONCookie(
-                name=cookie["name"],
-                value=cookie["value"],
-                domain=cookie["domain"],
-                path=cookie["path"],
-                expires=cookie["expires"],
-                httpOnly=cookie["httpOnly"],
-                secure=cookie["secure"],
-                sameSite=cookie["sameSite"],
-            )
-            for cookie in [cookie.to_json() for cookie in cookies]
-        ]
+        return [cookie.to_json() for cookie in cookies]
 
     @staticmethod
     def extract_clearance_cookie(
-        cookies: Iterable[JSONCookie],
-    ) -> Optional[JSONCookie]:
+        cookies: Iterable[T_JSON_DICT],
+    ) -> Optional[T_JSON_DICT]:
         """
         Extract the Cloudflare clearance cookie from a list of cookies.
 
         Parameters
         ----------
-        cookies : Iterable[JSONCookie]
+        cookies : Iterable[T_JSON_DICT]
             List of cookies.
 
         Returns
         -------
-        Optional[JSONCookie]
+        Optional[T_JSON_DICT]
             The Cloudflare clearance cookie. Returns None if the cookie is not found.
         """
 
@@ -178,13 +136,13 @@ class CloudflareSolver:
 
         return None
 
-    async def get_cookies(self) -> List[JSONCookie]:
+    async def get_cookies(self) -> List[T_JSON_DICT]:
         """
         Get all cookies from the current page.
 
         Returns
         -------
-        List[JSONCookie]
+        List[T_JSON_DICT]
             List of cookies.
         """
         return self._format_cookies(await self.driver.cookies.get_all())
@@ -198,7 +156,7 @@ class CloudflareSolver:
         Optional[ChallengePlatform]
             The Cloudflare challenge platform.
         """
-        html: str = await self.driver.main_tab.get_content()
+        html = await self.driver.main_tab.get_content()
 
         for platform in ChallengePlatform:
             if f"cType: '{platform.value}'" in html:
@@ -282,7 +240,7 @@ async def main() -> None:
     parser.add_argument(
         "-ua",
         "--user-agent",
-        default="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+        default="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
         help="The user agent to use for the browser requests",
         type=str,
     )
@@ -334,8 +292,6 @@ async def main() -> None:
     )
 
     args = parser.parse_args()
-    sys.stdout = io.StringIO()
-    nest_asyncio.apply()
 
     logging.basicConfig(
         format="[%(asctime)s] [%(levelname)s] %(message)s",
@@ -343,7 +299,7 @@ async def main() -> None:
         level=logging.INFO,
     )
 
-    logging.getLogger("nodriver").setLevel(logging.WARNING)
+    logging.getLogger("zendriver").setLevel(logging.WARNING)
     logging.info("Launching %s browser...", "headed" if args.headed else "headless")
 
     challenge_messages = {
