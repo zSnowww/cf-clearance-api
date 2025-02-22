@@ -18,21 +18,6 @@ COMMAND: Final[str] = (
 )
 
 
-class ZendriverOptions(list):
-    """A class for managing zendriver options."""
-
-    def add_argument(self, arg: str) -> None:
-        """
-        Add an argument to the list of arguments.
-
-        Parameters
-        ----------
-        arg : str
-            The argument
-        """
-        self.append(arg)
-
-
 class ChallengePlatform(Enum):
     """Cloudflare challenge platform types."""
 
@@ -71,22 +56,20 @@ class CloudflareSolver:
         headless: bool,
         proxy: Optional[str],
     ) -> None:
-        options = ZendriverOptions()
+        config = zendriver.Config(headless=headless)
 
         if user_agent is not None:
-            options.add_argument(f"--user-agent={user_agent}")
+            config.add_argument(f"--user-agent={user_agent}")
 
         if not http2:
-            options.add_argument("--disable-http2")
+            config.add_argument("--disable-http2")
 
         if not http3:
-            options.add_argument("--disable-quic")
+            config.add_argument("--disable-quic")
 
-        if proxy is not None:
-            auth_proxy = SeleniumAuthenticatedProxy(proxy, use_legacy_extension=True)
-            auth_proxy.enrich_chrome_options(options)
+        auth_proxy = SeleniumAuthenticatedProxy(proxy)
+        auth_proxy.enrich_chrome_options(config)
 
-        config = zendriver.Config(headless=headless, browser_args=options)
         self.driver = zendriver.Browser(config)
         self._timeout = timeout
 
