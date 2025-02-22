@@ -28,7 +28,7 @@ class ChallengePlatform(Enum):
 
 class CloudflareSolver:
     """
-    A class for solving Cloudflare challenges with undetected-chromedriver.
+    A class for solving Cloudflare challenges with Zendriver.
 
     Parameters
     ----------
