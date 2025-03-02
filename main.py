@@ -4,10 +4,12 @@ import argparse
 import asyncio
 import json
 import logging
+import random
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, Final, Iterable, List, Optional
 
+import latest_user_agents
 import zendriver
 from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
 from zendriver.cdp.network import T_JSON_DICT, Cookie
@@ -16,6 +18,24 @@ from zendriver.core.element import Element
 COMMAND: Final[str] = (
     '{name}: {binary} --header "Cookie: {cookies}" --header "User-Agent: {user_agent}" {url}'
 )
+
+
+def get_chrome_user_agent() -> str:
+    """
+    Get a random up-to-date Chrome user agent string.
+
+    Returns
+    -------
+    str
+        The user agent string.
+    """
+    chrome_user_agents = [
+        user_agent
+        for user_agent in latest_user_agents.get_latest_user_agents()
+        if "Chrome" in user_agent
+    ]
+
+    return random.choice(chrome_user_agents)
 
 
 class ChallengePlatform(Enum):
@@ -304,8 +324,10 @@ async def main() -> None:
         ChallengePlatform.INTERACTIVE: "Solving Cloudflare challenge [Interactive]...",
     }
 
+    user_agent = get_chrome_user_agent() if args.user_agent is None else args.user_agent
+
     async with CloudflareSolver(
-        user_agent=args.user_agent,
+        user_agent=user_agent,
         timeout=args.timeout,
         http2=not args.disable_http2,
         http3=not args.disable_http3,
