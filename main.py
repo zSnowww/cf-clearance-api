@@ -361,7 +361,8 @@ async def main() -> None:
 
             all_cookies = await solver.get_cookies()
             clearance_cookie = solver.extract_clearance_cookie(all_cookies)
-            user_agent = await solver.get_user_agent()
+
+        user_agent = await solver.get_user_agent()
 
     if clearance_cookie is None:
         logging.error("Failed to retrieve a Cloudflare clearance cookie.")
