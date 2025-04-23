@@ -10,8 +10,11 @@ from enum import Enum
 from typing import Any, Dict, Final, Iterable, List, Optional
 
 import latest_user_agents
+import user_agents
 import zendriver
 from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
+from zendriver import cdp
+from zendriver.cdp.emulation import UserAgentBrandVersion, UserAgentMetadata
 from zendriver.cdp.network import T_JSON_DICT, Cookie
 from zendriver.core.element import Element
 
@@ -162,6 +165,41 @@ class CloudflareSolver:
             List of cookies.
         """
         return self._format_cookies(await self.driver.cookies.get_all())
+
+    async def set_user_agent_metadata(self, user_agent: str) -> None:
+        """
+        Set the user agent metadata for the browser.
+
+        Parameters
+        ----------
+        user_agent : str
+            The user agent string to parse information from.
+        """
+        device = user_agents.parse(user_agent)
+
+        self.driver.main_tab.feed_cdp(
+            cdp.network.set_user_agent_override(
+                user_agent=user_agent,
+                platform=device.os.family,
+                user_agent_metadata=UserAgentMetadata(
+                    platform=device.os.family,
+                    platform_version=device.os.version_string,
+                    architecture="x86_64",
+                    model=device.device.model or "",
+                    mobile=device.is_mobile,
+                    brands=[
+                        UserAgentBrandVersion(
+                            brand="Google Chrome",
+                            version=str(device.browser.version[0]),
+                        ),
+                        UserAgentBrandVersion(brand="Not-A.Brand", version="8"),
+                        UserAgentBrandVersion(
+                            brand="Chromium", version=str(device.browser.version[0])
+                        ),
+                    ],
+                ),
+            )
+        )
 
     async def detect_challenge(self) -> Optional[ChallengePlatform]:
         """
@@ -346,6 +384,7 @@ async def main() -> None:
         clearance_cookie = solver.extract_clearance_cookie(all_cookies)
 
         if clearance_cookie is None:
+            await solver.set_user_agent_metadata(await solver.get_user_agent())
             challenge_platform = await solver.detect_challenge()
 
             if challenge_platform is None:
