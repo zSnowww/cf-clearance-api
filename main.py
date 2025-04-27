@@ -35,7 +35,7 @@ def get_chrome_user_agent() -> str:
     chrome_user_agents = [
         user_agent
         for user_agent in latest_user_agents.get_latest_user_agents()
-        if "Chrome" in user_agent
+        if "Chrome" in user_agent and "Edg" not in user_agent
     ]
 
     return random.choice(chrome_user_agents)
