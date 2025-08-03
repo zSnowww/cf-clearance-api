@@ -177,27 +177,40 @@ class CloudflareSolver:
         """
         device = user_agents.parse(user_agent)
 
+        metadata = UserAgentMetadata(
+            architecture="x86",
+            bitness="64",
+            brands=[
+                UserAgentBrandVersion(brand="Not)A;Brand", version="8"),
+                UserAgentBrandVersion(
+                    brand="Chromium", version=str(device.browser.version[0])
+                ),
+                UserAgentBrandVersion(
+                    brand="Google Chrome",
+                    version=str(device.browser.version[0]),
+                ),
+            ],
+            full_version_list=[
+                UserAgentBrandVersion(brand="Not)A;Brand", version="8"),
+                UserAgentBrandVersion(
+                    brand="Chromium", version=str(device.browser.version[0])
+                ),
+                UserAgentBrandVersion(
+                    brand="Google Chrome",
+                    version=str(device.browser.version[0]),
+                ),
+            ],
+            mobile=device.is_mobile,
+            model=device.device.model or "",
+            platform=device.os.family,
+            platform_version=device.os.version_string,
+            full_version=device.browser.version_string,
+            wow64=False,
+        )
+
         self.driver.main_tab.feed_cdp(
             cdp.network.set_user_agent_override(
-                user_agent=user_agent,
-                platform=device.os.family,
-                user_agent_metadata=UserAgentMetadata(
-                    platform=device.os.family,
-                    platform_version=device.os.version_string,
-                    architecture="x86_64",
-                    model=device.device.model or "",
-                    mobile=device.is_mobile,
-                    brands=[
-                        UserAgentBrandVersion(
-                            brand="Google Chrome",
-                            version=str(device.browser.version[0]),
-                        ),
-                        UserAgentBrandVersion(brand="Not-A.Brand", version="8"),
-                        UserAgentBrandVersion(
-                            brand="Chromium", version=str(device.browser.version[0])
-                        ),
-                    ],
-                ),
+                user_agent, user_agent_metadata=metadata
             )
         )
 
