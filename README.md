@@ -1,66 +1,260 @@
-# CF-Clearance-Scraper
+# CF-Clearance-Scraper v2.0 - Arquitectura Unificada
 
-## Zendriver Version
-A simple program for scraping Cloudflare clearance (cf_clearance) cookies from websites issuing Cloudflare challenges to visitors. This program works on all Cloudflare challenge types (JavaScript, managed, and interactive). If you would prefer using Playwright, you can check out the [Playwright version](https://github.com/Xewdy444/CF-Clearance-Scraper/tree/playwright).
+Una solución completa y modernizada para resolver desafíos de Cloudflare, incluyendo obtención de cookies de clearance y resolución de Turnstile CAPTCHA.
 
+## 🆕 Novedades de la v2.0
 
-## Clearance Cookie Usage
-In order to bypass Cloudflare challenges with the clearance cookies, you must make sure of two things:
+### Arquitectura Unificada
+- **`BaseSolver`**: Clase abstracta base que define la interfaz común para todos los solvers
+- **`UnifiedCloudflareDetector`**: Detector universal que identifica todos los tipos de desafíos en una sola pasada
+- **Interfaz Polimórfica**: Todos los solvers implementan los mismos métodos base (`detect_challenge`, `solve`)
+- **Tipos Consistentes**: `ChallengeType`, `SolverMode` para mayor claridad
+- **Resultados Estructurados**: `BaseResult`, `ClearanceResult`, `TurnstileResult` con información completa
 
-- The user agent used to fetch the clearance cookie must match the user agent being used within the requests that use the clearance cookie
-- The IP address used to fetch the clearance cookie must match the IP address being used to make the requests that use the clearance cookie
+### Mejoras de Mantenibilidad
+- **Separación de Responsabilidades**: Cada solver se enfoca en su tipo específico de desafío
+- **Código Reutilizable**: Funcionalidades comunes en la clase base
+- **Extensibilidad**: Fácil agregar nuevos tipos de solvers
+- **Compatibilidad**: Las APIs v1.x siguen funcionando
+
+## Funcionalidades
+
+### 🛡️ CF-Clearance (Cookies de Clearance)
+- Resolución automática de desafíos de Cloudflare (JavaScript, Managed, Interactive)
+- Obtención de cookies `cf_clearance` requeridas
+- Soporte para proxies autenticados
+- User agents realistas con metadatos completos
+- Generación de comandos HTTP (curl, wget, aria2)
+
+### 🔄 Turnstile Solver (CAPTCHA)
+- Detección automática de sitekey en páginas web
+- Modo manual para sitekeys conocidos
+- Resolución automática de desafíos de Turnstile
+- Soporte para parámetros `action` y `cdata`
+- Timeouts configurables
+
+### 🌐 APIs e Interfaces
+- Interfaz de línea de comandos (CLI) mejorada
+- API REST completa con documentación OpenAPI
+- Detección unificada de múltiples tipos de desafíos
+- Almacenamiento persistente de resultados
+
+## Instalación
+
+```bash
+# Instalar dependencias
+pip install -r requirements.txt
+
+# O instalar como paquete
+pip install -e .
+```
+
+## Uso Rápido
+
+### Arquitectura Unificada
+
+```python
+import asyncio
+from cf_clearance_scraper import CloudflareSolver, TurnstileSolver, UnifiedCloudflareDetector
+
+async def ejemplo_unificado():
+    # Detectar todos los tipos de desafíos
+    async with CloudflareSolver() as solver:
+        challenges = await UnifiedCloudflareDetector.detect_all_challenges(
+            solver, "https://sslrenewals.com/checkout.aspx"
+        )
+        print(f"Desafíos encontrados: {challenges['challenges_found']}")
+    
+    # Resolver clearance con nueva interfaz
+    async with CloudflareSolver() as solver:
+        result = await solver.solve("https://protected-site.com")
+        if result.success:
+            print(f"Cookie obtenida: {result.clearance_cookie['value']}")
+    
+    # Resolver Turnstile con auto-detección
+    async with TurnstileSolver() as solver:
+        result = await solver.solve("https://turnstile-site.com")
+        if result.success:
+            print(f"Token obtenido: {result.token}")
+
+asyncio.run(ejemplo_unificado())
+```
+
+### Uso Tradicional (Compatibilidad v1.x)
+
+```python
+# CloudflareSolver (modo tradicional)
+async with CloudflareSolver() as solver:
+    await solver.navigate_to("https://sslrenewals.com/checkout.aspx")
+    cookies = await solver.get_cookies()
+    clearance = solver.extract_clearance_cookie(cookies)
+
+# TurnstileSolver (modo tradicional) 
+async with TurnstileSolver() as solver:
+    result = await solver.solve_turnstile("https://sslrenewals.com/checkout.aspx")
+```
+
+### CLI
+
+```bash
+# Obtener clearance cookie
+python main.py https://protected-site.com --file cookies.json
+
+# Resolver Turnstile (auto-detección)
+python -m cf_clearance_scraper.api.models --turnstile https://turnstile-site.com
+
+# Modo API
+python api_server.py --host 127.0.0.1 --port 8000
+```
+
+## API REST
+
+### Endpoints Principales
+
+```bash
+# Health check
+GET /health
+
+# Clearance tradicional
+POST /scrape
+{
+  "url": "https://protected-site.com",
+  "timeout": 30,
+  "headless": true
+}
+
+# Turnstile auto-detección
+POST /turnstile
+{
+  "url": "https://turnstile-site.com",
+  "mode": "auto_detect"
+}
+
+# Detección de sitekey
+POST /turnstile/detect
+{
+  "url": "https://turnstile-site.com"
+}
+```
+
+### Ejemplos de Respuesta
+
+```json
+// Clearance Response
+{
+  "success": true,
+  "challenge_type": "managed",
+  "clearance_cookie": {"name": "cf_clearance", "value": "abc123..."},
+  "processing_time": 12.3,
+  "challenge_detected": true
+}
+
+// Turnstile Response  
+{
+  "success": true,
+  "challenge_type": "turnstile",
+  "token": "0.ABC123...",
+  "sitekey": "0x4AAAAAAABs8...",
+  "processing_time": 8.7
+}
+```
+
+## Arquitectura de Clases
 
 ```mermaid
-flowchart
-	N14e["cf_clearance"]
-	N14f["IP Address"]
-	N150["User Agent"]
-	N14e --> N14f
-	N14e --> N150
+classDiagram
+    class BaseSolver {
+        <<abstract>>
+        +start()
+        +stop()
+        +navigate_to(url)
+        +detect_challenge(url)*
+        +solve(url, **kwargs)*
+    }
+    
+    class CloudflareSolver {
+        +solve_challenge()
+        +get_cookies()
+        +extract_clearance_cookie()
+    }
+    
+    class TurnstileSolver {
+        +detect_sitekey(url)
+        +solve_turnstile(url, sitekey)
+    }
+    
+    class UnifiedCloudflareDetector {
+        +detect_all_challenges(solver, url)
+    }
+    
+    BaseSolver <|-- CloudflareSolver
+    BaseSolver <|-- TurnstileSolver
+    UnifiedCloudflareDetector ..> BaseSolver
 ```
 
-## Installation
-Download and install [Google Chrome](https://www.google.com/chrome/index.html).
+## Tipos de Datos
 
-Then, install the Python dependencies:
+```python
+from cf_clearance_scraper import ChallengeType, SolverMode
 
-    $ pip install -r requirements.txt
+# Tipos de desafío
+ChallengeType.JAVASCRIPT    # Desafío no interactivo
+ChallengeType.MANAGED       # Desafío gestionado  
+ChallengeType.INTERACTIVE   # Desafío interactivo
+ChallengeType.TURNSTILE     # CAPTCHA Turnstile
 
-## Usage
-> [!WARNING]
-> Depending on the user agent used, it may affect your ability to solve the Cloudflare challenge.
-
-```
-usage: main.py [-h] [-f FILE] [-t TIMEOUT] [-p PROXY] [-ua USER_AGENT] [--disable-http2] [--disable-http3] [--headed] [-ac] [-c] [-w] [-a] URL
-
-A simple program for scraping Cloudflare clearance (cf_clearance) cookies from websites issuing Cloudflare challenges to visitors
-
-positional arguments:
-  URL                   The URL to scrape the Cloudflare clearance cookie from
-
-options:
-  -h, --help            show this help message and exit
-  -f FILE, --file FILE  The file to write the Cloudflare clearance cookie information to, in JSON format
-  -t TIMEOUT, --timeout TIMEOUT
-                        The timeout in seconds to use for solving challenges
-  -p PROXY, --proxy PROXY
-                        The proxy server URL to use for the browser requests
-  -ua USER_AGENT, --user-agent USER_AGENT
-                        The user agent to use for the browser requests
-  --disable-http2       Disable the usage of HTTP/2 for the browser requests
-  --disable-http3       Disable the usage of HTTP/3 for the browser requests
-  --headed              Run the browser in headed mode
-  -ac, --all-cookies    Retrieve all cookies from the page, not just the Cloudflare clearance cookie
-  -c, --curl            Get the cURL command for the request with the cookies and user agent
-  -w, --wget            Get the Wget command for the request with the cookies and user agent
-  -a, --aria2           Get the aria2 command for the request with the cookies and user agent
+# Modos de solver
+SolverMode.AUTO_DETECT      # Detección automática
+SolverMode.MANUAL           # Sitekey manual
 ```
 
-## Example
-    $ python main.py -f cookies.json https://sergiodemo.com/security/challenge/legacy-challenge
-    [14:24:27] [INFO] Launching headless browser...
-    [14:24:27] [INFO] Going to https://sergiodemo.com/security/challenge/legacy-challenge...
-    [14:24:28] [INFO] Solving Cloudflare challenge [Interactive]...
-    [14:24:31] [INFO] Cookie: cf_clearance=SkyEdEGvKp1BBA2NpRW3Azsw5neMD6sEEqJd6jOCCfs-1736886257-1.2.1.1-cam47ywp3q_yKE1bw0lZ2YS83dnh_BsIHtS7earbsYE.AxQDBtZiifiHvp1nZGRhABaSdjU7XRQpUCVwUSrlJGH8DXr50YR18pNLxBvcEJFO2gPMxr.ZjKze8rWgM9H4rPeET67jzAo_ZRpNP6hGCvdyO62VVCtqDBQDKhKZz9yZQp7YEHK7tchQIteVgu.dUxYdan5_D.R0zewnS382BP0w1AoTf2p40.lQwbhgildEiKG14xACd13V4EEthkZV0dnliwcn35rT3h32ODf50MABQNSQ8WjhZhbLSNOPO_zEhrK9R0Yn4eBuRKvnL9_x9jKvaBPDPAgyiZv_VzFP_g
-    [14:24:31] [INFO] User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36
-    [14:24:31] [INFO] Writing Cloudflare clearance cookie information to cookies.json...
+## Migración desde v1.x
+
+La v2.0 mantiene **compatibilidad completa** con las APIs v1.x. Para aprovechar las nuevas funcionalidades:
+
+### Cambios Recomendados
+
+```python
+# v1.x - Estilo tradicional
+async with CloudflareSolver() as solver:
+    await solver.navigate_to(url)
+    challenge = await solver.detect_challenge()
+    success = await solver.solve_challenge()
+
+# v2.0 - Estilo unificado (recomendado)
+async with CloudflareSolver() as solver:
+    result = await solver.solve(url)
+    # result contiene toda la información
+```
+
+### Imports Actualizados
+
+```python
+# v2.0 - Imports desde el módulo principal
+from cf_clearance_scraper import (
+    BaseSolver,           # Nuevo
+    ChallengeType,        # Nuevo (reemplaza ChallengePlatform)
+    CloudflareSolver,     # Actualizado
+    TurnstileSolver,      # Actualizado
+    UnifiedCloudflareDetector,  # Nuevo
+)
+
+# Compatibilidad v1.x todavía disponible
+from cf_clearance_scraper import ChallengePlatform, TurnstileMode
+```
+
+## Ejemplos Avanzados
+
+Ver `example_unified_solver.py` para demostraciones completas de:
+- Detección unificada de desafíos
+- Uso polimórfico de solvers
+- Manejo de errores y timeouts
+- Integración con APIs externas
+
+## Licencia
+
+MIT License - Ver `LICENSE` para más detalles.
+
+## Contribuciones
+
+Las contribuciones son bienvenidas. Por favor, mantén la compatibilidad hacia atrás y sigue los patrones de la arquitectura unificada.
