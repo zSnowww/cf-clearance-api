@@ -3,15 +3,6 @@
 
 # API Principal - api.asukaservices.xyz
 api.asukaservices.xyz {
-    # Rate limiting
-    rate_limit {
-        zone api {
-            key {remote_host}
-            events 10
-            window 1s
-        }
-    }
-
     # Headers de seguridad
     header {
         # Seguridad
@@ -24,17 +15,17 @@ api.asukaservices.xyz {
         -Server
     }
 
+    # Bloquear acceso directo a /health
+    handle /health {
+        respond "Not Found" 404
+    }
+
     # Proxy reverso a la API
     reverse_proxy cf-clearance-api:8000 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}
         header_up X-Forwarded-Proto https
-    }
-
-    # Bloquear acceso directo a /health
-    handle /health {
-        respond "Not Found" 404
     }
 
     # Logs
@@ -46,15 +37,6 @@ api.asukaservices.xyz {
 
 # Status - status.asukaservices.xyz  
 status.asukaservices.xyz {
-    # Rate limiting más permisivo para status
-    rate_limit {
-        zone status {
-            key {remote_host}
-            events 30
-            window 1s
-        }
-    }
-
     # Headers de seguridad
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
@@ -70,17 +52,6 @@ status.asukaservices.xyz {
         -Server
     }
 
-    # Status endpoint (sin /health en la URL)
-    reverse_proxy cf-clearance-api:8000 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto https
-        
-        # Reescribir todas las requests a /health
-        rewrite * /health
-    }
-
     # Endpoint adicional para métricas
     handle /metrics {
         reverse_proxy cf-clearance-api:8000 {
@@ -91,6 +62,17 @@ status.asukaservices.xyz {
             
             rewrite * /admin/stats
         }
+    }
+
+    # Status endpoint (sin /health en la URL) - debe ir al final
+    reverse_proxy cf-clearance-api:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto https
+        
+        # Reescribir todas las requests a /health
+        rewrite * /health
     }
 
     # Logs
