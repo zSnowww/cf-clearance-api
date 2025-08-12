@@ -3,31 +3,27 @@ version: '3.8'
 services:
   cf-clearance-api:
     build: .
-    expose:
-      - "8000"
     environment:
       - PYTHONUNBUFFERED=1
-      - MAX_CONCURRENT_REQUESTS=3
-      - CHROME_HEADLESS=true
-      - TIMEOUT_DEFAULT=45
     volumes:
       - ./logs:/app/logs
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 60s
-      timeout: 15s
+      interval: 30s
+      timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 40s
     deploy:
       resources:
         limits:
-          memory: 3.2G
+          memory: 3G
           cpus: '1.8'
         reservations:
           memory: 512M
-          cpus: '0.3'
-    shm_size: 512mb
+          cpus: '0.5'
+    networks:
+      - cf-network
 
   nginx:
     image: nginx:alpine
@@ -37,12 +33,23 @@ services:
     volumes:
       - ./nginx.zsnow.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
     depends_on:
       - cf-clearance-api
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: '0.2'
+    networks:
+      - cf-network
 
+  # Certbot para SSL (se ejecutará cuando configuremos HTTPS)
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./ssl:/etc/letsencrypt
+      - ./ssl-challenge:/var/www/certbot
+    command: /bin/sh -c "trap exit TERM; while :; do sleep 6h & wait $${!}; nginx -s reload; done;"
+    networks:
+      - cf-network
+
+networks:
+  cf-network:
+    driver: bridge
