@@ -1,0 +1,106 @@
+# Configuración Caddy para asukaservices.xyz
+# SSL automático con Let's Encrypt
+
+# API Principal - api.asukaservices.xyz
+api.asukaservices.xyz {
+    # Rate limiting
+    rate_limit {
+        zone api {
+            key {remote_host}
+            events 10
+            window 1s
+        }
+    }
+
+    # Headers de seguridad
+    header {
+        # Seguridad
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        
+        # Ocultar servidor
+        -Server
+    }
+
+    # Proxy reverso a la API
+    reverse_proxy cf-clearance-api:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto https
+    }
+
+    # Bloquear acceso directo a /health
+    handle /health {
+        respond "Not Found" 404
+    }
+
+    # Logs
+    log {
+        output file /var/log/caddy/api.log
+        format json
+    }
+}
+
+# Status - status.asukaservices.xyz  
+status.asukaservices.xyz {
+    # Rate limiting más permisivo para status
+    rate_limit {
+        zone status {
+            key {remote_host}
+            events 30
+            window 1s
+        }
+    }
+
+    # Headers de seguridad
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        
+        # Headers específicos para status
+        Cache-Control "no-cache, no-store, must-revalidate"
+        Pragma "no-cache"
+        Expires "0"
+        
+        -Server
+    }
+
+    # Status endpoint (sin /health en la URL)
+    reverse_proxy cf-clearance-api:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto https
+        
+        # Reescribir todas las requests a /health
+        rewrite * /health
+    }
+
+    # Endpoint adicional para métricas
+    handle /metrics {
+        reverse_proxy cf-clearance-api:8000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto https
+            
+            rewrite * /admin/stats
+        }
+    }
+
+    # Logs
+    log {
+        output file /var/log/caddy/status.log
+        format json
+    }
+}
+
+# Bloquear acceso directo por IP
+:80, :443 {
+    respond "Access Denied" 444
+}

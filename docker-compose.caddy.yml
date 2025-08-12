@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  cf-clearance-api:
+    build: .
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: '1.8'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - cf-network
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy_data:/data
+      - ./caddy_config:/config
+      - ./logs/caddy:/var/log/caddy
+    depends_on:
+      - cf-clearance-api
+    restart: unless-stopped
+    networks:
+      - cf-network
+    environment:
+      - CADDY_ADMIN=0.0.0.0:2019
+
+networks:
+  cf-network:
+    driver: bridge
