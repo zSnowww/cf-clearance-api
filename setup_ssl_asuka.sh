@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Script para configurar SSL para zsnow.site subdominios
-# Dominios: api.zsnow.site, status.zsnow.site
+# Script para configurar SSL para asukaservices.xyz subdominios
+# Dominios: api.asukaservices.xyz, status.asukaservices.xyz
 
 set -e
 
@@ -28,8 +28,8 @@ print_error() {
     echo -e "${RED}✗${NC} ${1}"
 }
 
-DOMAINS="api.zsnow.site status.zsnow.site"
-EMAIL="admin@zsnow.site"  # Cambia por tu email
+DOMAINS="api.asukaservices.xyz status.asukaservices.xyz"
+EMAIL="admin@asukaservices.xyz"  # Cambia por tu email
 
 print_step "Configurando SSL para dominios: $DOMAINS"
 
@@ -63,7 +63,7 @@ http {
     # Servidor temporal para verificación SSL
     server {
         listen 80;
-        server_name api.zsnow.site status.zsnow.site;
+        server_name api.asukaservices.xyz status.asukaservices.xyz;
 
         location /.well-known/acme-challenge/ {
             root /var/www/certbot;
@@ -78,22 +78,22 @@ EOF
 
 # Reiniciar con configuración temporal
 print_step "Aplicando configuración temporal..."
-docker compose -f docker-compose.zsnow.yml down
-cp nginx.ssl.temp.conf nginx.zsnow.conf
-docker compose -f docker-compose.zsnow.yml up -d nginx
+docker compose -f docker-compose.asuka.yml down
+cp nginx.ssl.temp.conf nginx.asuka.conf
+docker compose -f docker-compose.asuka.yml up -d nginx
 
 sleep 5
 
 # Obtener certificados SSL
 print_step "Obteniendo certificados SSL..."
-docker compose -f docker-compose.zsnow.yml run --rm certbot certonly \
+docker compose -f docker-compose.asuka.yml run --rm certbot certonly \
     --webroot \
     --webroot-path=/var/www/certbot \
     --email $EMAIL \
     --agree-tos \
     --no-eff-email \
-    -d api.zsnow.site \
-    -d status.zsnow.site
+    -d api.asukaservices.xyz \
+    -d status.asukaservices.xyz
 
 if [ $? -eq 0 ]; then
     print_success "Certificados SSL obtenidos exitosamente"
@@ -104,7 +104,7 @@ fi
 
 # Crear configuración final con HTTPS
 print_step "Creando configuración final con HTTPS..."
-cat > nginx.zsnow.conf << 'EOF'
+cat > nginx.asuka.conf << 'EOF'
 events {
     worker_connections 1024;
 }
@@ -152,7 +152,7 @@ http {
     # Redirección HTTP a HTTPS
     server {
         listen 80;
-        server_name api.zsnow.site status.zsnow.site;
+        server_name api.asukaservices.xyz status.asukaservices.xyz;
 
         location /.well-known/acme-challenge/ {
             root /var/www/certbot;
@@ -163,13 +163,13 @@ http {
         }
     }
 
-    # Servidor HTTPS para api.zsnow.site
+    # Servidor HTTPS para api.asukaservices.xyz
     server {
         listen 443 ssl http2;
-        server_name api.zsnow.site;
+        server_name api.asukaservices.xyz;
 
-        ssl_certificate /etc/letsencrypt/live/api.zsnow.site/fullchain.pem;
-        ssl_certificate_key /etc/letsencrypt/live/api.zsnow.site/privkey.pem;
+        ssl_certificate /etc/letsencrypt/live/api.asukaservices.xyz/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/api.asukaservices.xyz/privkey.pem;
 
         # Rate limiting para API
         limit_req zone=api burst=20 nodelay;
@@ -199,13 +199,13 @@ http {
         }
     }
 
-    # Servidor HTTPS para status.zsnow.site
+    # Servidor HTTPS para status.asukaservices.xyz
     server {
         listen 443 ssl http2;
-        server_name status.zsnow.site;
+        server_name status.asukaservices.xyz;
 
-        ssl_certificate /etc/letsencrypt/live/api.zsnow.site/fullchain.pem;
-        ssl_certificate_key /etc/letsencrypt/live/api.zsnow.site/privkey.pem;
+        ssl_certificate /etc/letsencrypt/live/api.asukaservices.xyz/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/api.asukaservices.xyz/privkey.pem;
 
         # Rate limiting más permisivo para status
         limit_req zone=status burst=50 nodelay;
@@ -246,8 +246,8 @@ http {
         listen 443 ssl default_server;
         server_name _;
         
-        ssl_certificate /etc/letsencrypt/live/api.zsnow.site/fullchain.pem;
-        ssl_certificate_key /etc/letsencrypt/live/api.zsnow.site/privkey.pem;
+        ssl_certificate /etc/letsencrypt/live/api.asukaservices.xyz/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/api.asukaservices.xyz/privkey.pem;
         
         location / {
             return 444;
@@ -258,8 +258,8 @@ EOF
 
 # Reiniciar con configuración final
 print_step "Aplicando configuración final..."
-docker compose -f docker-compose.zsnow.yml down
-docker compose -f docker-compose.zsnow.yml up -d
+docker compose -f docker-compose.asuka.yml down
+docker compose -f docker-compose.asuka.yml up -d
 
 # Limpiar archivo temporal
 rm -f nginx.ssl.temp.conf
@@ -270,11 +270,11 @@ echo ""
 echo -e "${GREEN}🎉 ¡CONFIGURACIÓN COMPLETADA!${NC}"
 echo ""
 echo -e "${BLUE}📍 URLs disponibles:${NC}"
-echo "   • API: https://api.zsnow.site/"
-echo "   • Documentación: https://api.zsnow.site/docs"
-echo "   • Status: https://status.zsnow.site/"
-echo "   • Métricas: https://status.zsnow.site/metrics"
+echo "   • API: https://api.asukaservices.xyz/"
+echo "   • Documentación: https://api.asukaservices.xyz/docs"
+echo "   • Status: https://status.asukaservices.xyz/"
+echo "   • Métricas: https://status.asukaservices.xyz/metrics"
 echo ""
 echo -e "${BLUE}🔐 Ejemplo de uso:${NC}"
-echo "curl -H 'Authorization: Bearer admin123' https://api.zsnow.site/health"
+echo "curl -H 'Authorization: Bearer admin123' https://api.asukaservices.xyz/health"
 echo ""
