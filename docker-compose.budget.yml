@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  cf-clearance-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MAX_CONCURRENT_REQUESTS=3    # Reducido para 4GB RAM
+      - CHROME_HEADLESS=true
+      - TIMEOUT_DEFAULT=45
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 3.2G        # Usar casi toda la RAM
+          cpus: '1.8'         # Dejar 0.2 CPU para sistema
+        reservations:
+          memory: 512M
+          cpus: '0.3'
+    shm_size: 512mb           # Memoria compartida para Chrome
+
+  # Sin Nginx para ahorrar recursos - conexión directa
+  # Uncomment solo si necesitas proxy reverso:
+  # nginx:
+  #   image: nginx:alpine
+  #   ports:
+  #     - "80:80"
+  #   volumes:
+  #     - ./nginx.budget.conf:/etc/nginx/nginx.conf:ro
+  #   depends_on:
+  #     - cf-clearance-api
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 64M
+  #         cpus: '0.1'
+
